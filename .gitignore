@@ -1,0 +1,23 @@
+# Build output
+target/
+out/
+build/
+bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Optional local lib (en lugar de Maven)
+lib/

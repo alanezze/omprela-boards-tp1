@@ -49,7 +49,25 @@ public class DBConnection {
     }
 
     public static String getNombreBaseDeDatos() {
-        return config.getProperty("db.name", "omprela_boards");
+        return resolver("db.name", "omprela_boards");
+    }
+
+    /**
+     * Resuelve un valor de configuracion permitiendo override en este orden:
+     *   1. Propiedad de sistema  (-Ddb.password=...)
+     *   2. Variable de entorno   (DB_PASSWORD)
+     *   3. db.properties
+     *   4. Default
+     * Util para tests, CI y para no commitear credenciales reales en el archivo.
+     */
+    private static String resolver(String clave, String porDefecto) {
+        String porSystem = System.getProperty(clave);
+        if (porSystem != null && !porSystem.isEmpty()) return porSystem;
+
+        String porEnv = System.getenv(clave.replace('.', '_').toUpperCase());
+        if (porEnv != null && !porEnv.isEmpty()) return porEnv;
+
+        return config.getProperty(clave, porDefecto);
     }
 
     private static void cargarConfiguracion() {
@@ -95,9 +113,9 @@ public class DBConnection {
     }
 
     private static String buildUrl(boolean conBase) {
-        String host = config.getProperty("db.host", "localhost");
-        String port = config.getProperty("db.port", "3306");
-        String tz   = config.getProperty("db.timezone", "America/Argentina/Buenos_Aires");
+        String host = resolver("db.host", "localhost");
+        String port = resolver("db.port", "3306");
+        String tz   = resolver("db.timezone", "America/Argentina/Buenos_Aires");
         String suf  = conBase ? "/" + getNombreBaseDeDatos() : "/";
         return "jdbc:mysql://" + host + ":" + port + suf +
                "?useSSL=false&allowPublicKeyRetrieval=true" +
@@ -106,10 +124,10 @@ public class DBConnection {
     }
 
     private static String usuario() {
-        return config.getProperty("db.user", "root");
+        return resolver("db.user", "root");
     }
 
     private static String password() {
-        return config.getProperty("db.password", "");
+        return resolver("db.password", "");
     }
 }
