@@ -29,9 +29,11 @@ módulos se desarrollarán en las siguientes iteraciones.
 | Capa             | Tecnología                                |
 |------------------|--------------------------------------------|
 | Lenguaje         | Java 17                                    |
-| Persistencia     | MySQL 8.0                                  |
-| Acceso a datos   | JDBC (mysql-connector-j 8.x)               |
+| Persistencia     | MySQL 8.0+                                 |
+| Acceso a datos   | JDBC (mysql-connector-j 9.x)               |
 | Patrón           | MVC (Modelo · Vista/Controlador · Servicio · DAO) |
+| Build / deps     | Maven 3.9 (`pom.xml`)                      |
+| Testing          | JUnit 5 (Jupiter)                          |
 | IDE recomendado  | IntelliJ IDEA / Eclipse / NetBeans         |
 
 ## Estructura del proyecto
@@ -89,9 +91,18 @@ prototipo/
    Ya no es necesario tocar `DBConnection.java`.
 
 3. **Compilar y ejecutar**
-   Agregar `mysql-connector-j-8.x.x.jar` al classpath, incluir
-   `src/main/resources/` como carpeta de recursos (los IDEs lo hacen por
-   defecto) y ejecutar la clase `com.omprela.boards.view.MainConsola`.
+
+   Con Maven (recomendado):
+   ```bash
+   mvn -q exec:java -Dexec.mainClass=com.omprela.boards.view.MainConsola
+   ```
+   o desde el IDE: importar como proyecto Maven y ejecutar la clase
+   `com.omprela.boards.view.MainConsola`. Maven se encarga de descargar
+   `mysql-connector-j` y armar el classpath.
+
+   Sin Maven (legacy): agregar `mysql-connector-j-9.x.x.jar` al classpath
+   manualmente, incluir `src/main/resources/` como carpeta de recursos
+   y ejecutar la clase principal.
 
    En el primer arranque verás algo como:
    ```
@@ -115,6 +126,39 @@ prototipo/
 
 Convenciones, reglas y troubleshooting completos en
 [`docs/migraciones.md`](docs/migraciones.md).
+
+## Tests
+
+```bash
+# Tests unitarios (no requieren MySQL): solo el parser SQL
+mvn test
+
+# Suite completa (incluye integración contra MySQL real)
+mvn -Dintegration -Ddb.password=TU_PASS test
+```
+
+**¡Importante!** El test de integración (`BootstrapDBIT`) **dropea
+`omprela_boards` antes de cada corrida** para validar el flujo de
+creación desde cero. No correr contra una base con datos reales.
+
+Cobertura actual:
+
+| Suite                          | Tests | Qué valida                                          |
+|--------------------------------|------:|------------------------------------------------------|
+| `MigrationRunnerParserTest`    |    10 | Parser SQL: comillas, comentarios, escape, edge cases |
+| `BootstrapDBIT`                |     7 | DB creada, 4 migraciones aplicadas, 10 tablas + 2 vistas + 4 índices, conteos de seed data, idempotencia |
+
+Variables/properties para configuración en tiempo de ejecución (todas
+con override por `-Dprop=valor` o variable de entorno):
+
+| Property      | Env var      | Default                              |
+|---------------|--------------|---------------------------------------|
+| `db.host`     | `DB_HOST`    | `localhost`                           |
+| `db.port`     | `DB_PORT`    | `3306`                                |
+| `db.user`     | `DB_USER`    | `root`                                |
+| `db.password` | `DB_PASSWORD`| `(de db.properties)`                  |
+| `db.name`     | `DB_NAME`    | `omprela_boards`                      |
+| `db.timezone` | `DB_TIMEZONE`| `America/Argentina/Buenos_Aires`      |
 
 ### Script SQL legado
 

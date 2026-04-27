@@ -134,9 +134,38 @@ db.password=root
 db.timezone=America/Argentina/Buenos_Aires
 ```
 
+Cualquier valor puede ser sobrescrito en tiempo de ejecución sin tocar
+el archivo, en este orden de precedencia:
+
+1. Propiedad de sistema: `-Ddb.password=clave123`
+2. Variable de entorno: `DB_PASSWORD=clave123`
+3. `db.properties`
+4. Default hardcodeado
+
+Esto permite correr CI o tests sin commitear credenciales reales.
+
 Si se cambia `db.name`, la próxima ejecución crea **otra** base con ese
 nombre y aplica todas las migraciones desde cero. Útil para tener una
 base aparte en CI o para tests manuales.
+
+## Tests automáticos
+
+```bash
+# Solo unitarios (parser SQL, no requiere MySQL)
+mvn test
+
+# Suite completa (incluye integración real contra MySQL)
+mvn -Dintegration -Ddb.password=TU_PASS test
+```
+
+El test `BootstrapDBIT`:
+
+- Dropea `omprela_boards` antes de empezar (¡no usar contra prod!)
+- Llama a `DBConnection.getConnection()` para disparar el bootstrap
+- Verifica que la base, las 10 tablas, las 2 vistas, los 4 índices y
+  las filas de seed data estén creadas con los conteos esperados
+- Reaplica `MigrationRunner.aplicar()` y verifica que no duplique
+  filas ni en `schema_migrations` ni en las tablas de datos
 
 ## Troubleshooting
 
