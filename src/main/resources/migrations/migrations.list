@@ -1,0 +1,4 @@
+V001__schema.sql
+V002__indices.sql
+V003__vistas.sql
+V004__datos_prueba.sql
