@@ -1,133 +1,91 @@
 package com.omprela.boards.util;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.Properties;
 
 /**
- * Gestor unico de conexiones JDBC al motor MySQL.
- * Aplica el patron Singleton para reutilizar la conexion durante la ejecucion
- * del prototipo. En la version final, se reemplazara por un pool de conexiones
- * (HikariCP / DBCP) administrado por Spring.
- *
- * En el primer uso se crea la base si no existe y se aplican las migraciones
- * pendientes (ver MigrationRunner).
+ * Gestor de conexion a MySQL mediante JDBC, implementado con el patron Singleton.
+ * <p>
+ * Centraliza la configuracion de la conexion en un unico punto. Si se necesita
+ * cambiar las credenciales o el puerto, se modifica aqui.
+ * <p>
+ * Provee dos modos de conexion:
+ * <ul>
+ *   <li>{@link #getServerConnection()}: conecta al servidor SIN seleccionar base,
+ *       usado por el bootstrap para poder ejecutar CREATE DATABASE.</li>
+ *   <li>{@link #getConnection()}: conecta a la base omprela_boards ya creada.</li>
+ * </ul>
+ * <p>
+ * IMPORTANTE: requiere el driver mysql-connector-j en el classpath (carpeta lib/).
  */
 public class DBConnection {
 
-    private static final String ARCHIVO_CONFIG = "/db.properties";
-    private static final Properties config = new Properties();
-    private static Connection conexion;
-    private static boolean inicializada = false;
+    // ===== CONFIGURACION DE LA BASE DE DATOS =====
+    // Si tu MySQL usa otro puerto o password, cambialo aqui:
+    private static final String HOST     = "localhost";
+    private static final String PUERTO   = "3306";          // puerto por defecto de MySQL
+    private static final String BASE     = "omprela_boards";
+    private static final String USUARIO  = "root";
+    private static final String PASSWORD = "clave123";
 
-    static {
-        cargarConfiguracion();
-    }
+    private static final String PARAMS =
+        "?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&allowPublicKeyRetrieval=true";
+
+    // URL al servidor (sin base) - para crear la base si no existe
+    private static final String URL_SERVER =
+        "jdbc:mysql://" + HOST + ":" + PUERTO + "/" + PARAMS;
+
+    // URL a la base concreta
+    private static final String URL_BASE =
+        "jdbc:mysql://" + HOST + ":" + PUERTO + "/" + BASE + PARAMS;
+
+    private static Connection instancia;
 
     private DBConnection() { }
 
-    public static Connection getConnection() throws SQLException {
-        if (!inicializada) {
-            inicializarBaseDeDatos();
-            inicializada = true;
-        }
-        if (conexion == null || conexion.isClosed()) {
-            conexion = abrirConexion(true);
-        }
-        return conexion;
-    }
-
-    public static void close() {
-        if (conexion != null) {
-            try { conexion.close(); } catch (SQLException ignored) { }
-            conexion = null;
-        }
-    }
-
-    public static String getNombreBaseDeDatos() {
-        return resolver("db.name", "omprela_boards");
-    }
+    public static String getNombreBase() { return BASE; }
 
     /**
-     * Resuelve un valor de configuracion permitiendo override en este orden:
-     *   1. Propiedad de sistema  (-Ddb.password=...)
-     *   2. Variable de entorno   (DB_PASSWORD)
-     *   3. db.properties
-     *   4. Default
-     * Util para tests, CI y para no commitear credenciales reales en el archivo.
+     * Conexion al servidor MySQL SIN seleccionar base de datos.
+     * Se usa una sola vez en el bootstrap para crear la base si no existe.
      */
-    private static String resolver(String clave, String porDefecto) {
-        String porSystem = System.getProperty(clave);
-        if (porSystem != null && !porSystem.isEmpty()) return porSystem;
-
-        String porEnv = System.getenv(clave.replace('.', '_').toUpperCase());
-        if (porEnv != null && !porEnv.isEmpty()) return porEnv;
-
-        return config.getProperty(clave, porDefecto);
-    }
-
-    private static void cargarConfiguracion() {
-        try (InputStream is = DBConnection.class.getResourceAsStream(ARCHIVO_CONFIG)) {
-            if (is == null) {
-                throw new IllegalStateException(
-                    "No se encontro " + ARCHIVO_CONFIG + " en el classpath. " +
-                    "Verifica que src/main/resources este incluido como carpeta de recursos.");
-            }
-            config.load(is);
-        } catch (IOException e) {
-            throw new IllegalStateException("No se pudo leer " + ARCHIVO_CONFIG, e);
-        }
-    }
-
-    /**
-     * Crea la base si no existe y aplica las migraciones pendientes.
-     * Se invoca una sola vez por ejecucion (la primera vez que alguien pide conexion).
-     */
-    private static void inicializarBaseDeDatos() throws SQLException {
-        cargarDriver();
-        try (Connection bootstrap = abrirConexion(false);
-             Statement st = bootstrap.createStatement()) {
-            st.executeUpdate(
-                "CREATE DATABASE IF NOT EXISTS `" + getNombreBaseDeDatos() +
-                "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        }
-        try (Connection cn = abrirConexion(true)) {
-            new MigrationRunner(cn).aplicar();
-        }
-    }
-
-    private static Connection abrirConexion(boolean conBase) throws SQLException {
-        return DriverManager.getConnection(buildUrl(conBase), usuario(), password());
-    }
-
-    private static void cargarDriver() throws SQLException {
+    public static Connection getServerConnection() {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            throw new SQLException("Driver JDBC de MySQL no encontrado en el classpath", e);
+            return DriverManager.getConnection(URL_SERVER, USUARIO, PASSWORD);
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                "No se pudo conectar al servidor MySQL. Verifica que este corriendo " +
+                "y que las credenciales en DBConnection.java sean correctas.\n" +
+                "Detalle: " + e.getMessage(), e);
         }
     }
 
-    private static String buildUrl(boolean conBase) {
-        String host = resolver("db.host", "localhost");
-        String port = resolver("db.port", "3306");
-        String tz   = resolver("db.timezone", "America/Argentina/Buenos_Aires");
-        String suf  = conBase ? "/" + getNombreBaseDeDatos() : "/";
-        return "jdbc:mysql://" + host + ":" + port + suf +
-               "?useSSL=false&allowPublicKeyRetrieval=true" +
-               "&serverTimezone=" + tz +
-               "&allowMultiQueries=true";
+    /**
+     * Devuelve la conexion activa a la base omprela_boards (la crea la primera vez).
+     */
+    public static Connection getConnection() {
+        try {
+            if (instancia == null || instancia.isClosed()) {
+                instancia = DriverManager.getConnection(URL_BASE, USUARIO, PASSWORD);
+            }
+            return instancia;
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                "No se pudo conectar a la base '" + BASE + "'.\n" +
+                "Detalle: " + e.getMessage(), e);
+        }
     }
 
-    private static String usuario() {
-        return resolver("db.user", "root");
-    }
-
-    private static String password() {
-        return resolver("db.password", "");
+    /** Cierra la conexion activa. */
+    public static void close() {
+        try {
+            if (instancia != null && !instancia.isClosed()) {
+                instancia.close();
+                instancia = null;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al cerrar la conexion: " + e.getMessage());
+        }
     }
 }

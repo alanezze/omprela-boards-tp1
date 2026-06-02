@@ -1,45 +1,57 @@
 package com.omprela.boards.view;
 
 import com.omprela.boards.model.HistoriaUsuario;
-import com.omprela.boards.model.HistoriaUsuario.Estado;
-import com.omprela.boards.model.Proyecto;
-import com.omprela.boards.service.HistoriaUsuarioService;
-import com.omprela.boards.service.ProyectoService;
+import com.omprela.boards.model.Tarea;
+import com.omprela.boards.model.Ticket;
+import com.omprela.boards.model.Ticket.Estado;
+import com.omprela.boards.model.excepciones.OmprelaException;
+import com.omprela.boards.service.TicketService;
 import com.omprela.boards.util.DBConnection;
+import com.omprela.boards.util.BootstrapDB;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Scanner;
 
 /**
- * Vista de consola del prototipo OMPRELA-Boards.
- * Funciona como demostracion operacional del modulo de gestion de proyectos
- * y tickets, ejercitando los casos de uso CU02 (Crear proyecto), CU05 (Crear
- * historia de usuario), CU09 (Consultar tablero) y CU10 (Mover ticket de estado).
- *
- * Esta clase actua como Vista + Controlador en el patron MVC simplificado del
- * prototipo. En la version final del sistema, la vista sera una aplicacion web
- * y el controlador estara desacoplado mediante endpoints REST.
+ * Vista de consola con menu de seleccion del prototipo OMPRELA-Boards (TP3).
+ * <p>
+ * Esta version persiste los datos en MySQL a traves de la capa Service -> DAO.
+ * Cumple los requisitos de la consigna del TP3:
+ * <ul>
+ *   <li><b>Menu de seleccion</b> con estructuras condicionales (switch) y repetitivas (while).</li>
+ *   <li><b>Declaracion y creacion de objetos</b> mediante constructores parametrizados.</li>
+ *   <li><b>Manejo de excepciones</b> con try/catch (OmprelaException + NumberFormatException).</li>
+ *   <li><b>Polimorfismo</b>: historias y tareas se procesan uniformemente.</li>
+ *   <li><b>Persistencia en MySQL</b> via JDBC (cumple el requisito de base de datos).</li>
+ * </ul>
  */
 public class MainConsola {
 
-    private static final ProyectoService proyectoService = new ProyectoService();
-    private static final HistoriaUsuarioService historiaService = new HistoriaUsuarioService();
-    private static final Scanner scanner = new Scanner(System.in);
-    private static final int USUARIO_OPERADOR_ID = 1; // En la version final viene de la sesion
+    private final TicketService servicio;
+    private final Scanner scanner;
+
+    public MainConsola() {
+        this.servicio = new TicketService();
+        this.scanner = new Scanner(System.in);
+    }
 
     public static void main(String[] args) {
-        System.out.println("================================================");
-        System.out.println(" OMPRELA-Boards - Prototipo de gestion de proyectos");
-        System.out.println(" Universidad Siglo 21 - INF275 - TP1");
-        System.out.println("================================================");
+        new MainConsola().ejecutar();
+    }
 
+    public void ejecutar() {
+        imprimirBanner();
+
+        // Bootstrap automatico: crea la base, las tablas y los datos si no existen
         try {
-            DBConnection.getConnection();
-            System.out.println("[OK] Conexion a MySQL establecida");
-        } catch (Exception e) {
-            System.err.println("[ERROR] No se pudo conectar a MySQL: " + e.getMessage());
+            System.out.println("\n[bootstrap] Inicializando base de datos...");
+            BootstrapDB.inicializar();
+            System.out.printf("[OK] Base de datos lista. %d tickets en la base.%n",
+                servicio.tickets());
+        } catch (RuntimeException e) {
+            System.out.println("\n[ERROR DE CONEXION] " + e.getMessage());
+            System.out.println("Verifica que MySQL este corriendo y que las credenciales");
+            System.out.println("en DBConnection.java (usuario/password/puerto) sean correctas.");
             return;
         }
 
@@ -47,113 +59,149 @@ public class MainConsola {
         while (!salir) {
             mostrarMenu();
             String opcion = scanner.nextLine().trim();
+
             try {
                 switch (opcion) {
-                    case "1": listarProyectos(); break;
-                    case "2": crearProyecto(); break;
-                    case "3": listarTableroPorSprint(); break;
-                    case "4": crearHistoria(); break;
-                    case "5": moverHistoria(); break;
-                    case "0": salir = true; break;
-                    default: System.out.println("Opcion no valida.");
+                    case "1": crearHistoriaUsuario(); break;
+                    case "2": crearTarea(); break;
+                    case "3": listarTodos(); break;
+                    case "4": listarPorPrioridad(); break;
+                    case "5": filtrarPorEstado(); break;
+                    case "6": moverEstado(); break;
+                    case "7": deshacerUltimoMovimiento(); break;
+                    case "8": calcularEsfuerzoTotal(); break;
+                    case "9": buscarTicket(); break;
+                    case "0":
+                        salir = true;
+                        DBConnection.close();
+                        System.out.println("\n[Saliendo] Conexion cerrada. Hasta luego.");
+                        break;
+                    default:
+                        System.out.println("Opcion invalida. Por favor elija entre 0 y 9.");
                 }
+            } catch (OmprelaException ex) {
+                System.out.println("[ERROR DE NEGOCIO] " + ex.getMessage());
+            } catch (NumberFormatException ex) {
+                System.out.println("[ERROR] El valor ingresado no es un numero valido.");
             } catch (Exception ex) {
-                System.err.println("[ERROR] " + ex.getMessage());
+                System.out.println("[ERROR INESPERADO] " + ex.getMessage());
             }
+
             System.out.println();
         }
 
-        DBConnection.close();
-        System.out.println("Hasta luego.");
+        scanner.close();
     }
 
-    private static void mostrarMenu() {
-        System.out.println("\n----- MENU -----");
-        System.out.println("1. Listar proyectos");
-        System.out.println("2. Crear nuevo proyecto");
-        System.out.println("3. Ver tablero Kanban por sprint");
-        System.out.println("4. Crear nueva historia de usuario");
-        System.out.println("5. Mover historia de estado");
-        System.out.println("0. Salir");
-        System.out.print("Opcion: ");
+    private void imprimirBanner() {
+        System.out.println("=========================================================");
+        System.out.println(" OMPRELA-Boards - Prototipo Java POO + MySQL (TP3)");
+        System.out.println(" Universidad Siglo 21 - INF275");
+        System.out.println(" Alumno: Chavez Alan Ezequiel - VINF018147");
+        System.out.println("=========================================================");
     }
 
-    private static void listarProyectos() throws Exception {
-        List<Proyecto> proyectos = proyectoService.listar();
-        System.out.println("\n--- Proyectos registrados (" + proyectos.size() + ") ---");
-        proyectos.forEach(System.out::println);
+    private void mostrarMenu() {
+        System.out.println("\n----------- MENU PRINCIPAL -----------");
+        System.out.println("1.  Crear historia de usuario");
+        System.out.println("2.  Crear tarea tecnica");
+        System.out.println("3.  Listar todos los tickets");
+        System.out.println("4.  Listar tickets ordenados por prioridad (quicksort)");
+        System.out.println("5.  Filtrar tickets por estado");
+        System.out.println("6.  Mover ticket a otro estado");
+        System.out.println("7.  Deshacer ultimo movimiento (pila LIFO)");
+        System.out.println("8.  Calcular esfuerzo total (polimorfismo)");
+        System.out.println("9.  Buscar ticket por id");
+        System.out.println("0.  Salir");
+        System.out.print("\nElija una opcion: ");
     }
 
-    private static void crearProyecto() throws Exception {
-        Proyecto p = new Proyecto();
-        System.out.print("Nombre: ");
-        p.setNombre(scanner.nextLine());
-        System.out.print("Descripcion: ");
-        p.setDescripcion(scanner.nextLine());
-        System.out.print("Fecha inicio (YYYY-MM-DD): ");
-        p.setFechaInicio(LocalDate.parse(scanner.nextLine()));
-        System.out.print("Fecha fin estimada (YYYY-MM-DD, vacio para omitir): ");
-        String fin = scanner.nextLine();
-        if (!fin.isEmpty()) p.setFechaFinEstimada(LocalDate.parse(fin));
-        System.out.print("Presupuesto: ");
-        String pre = scanner.nextLine();
-        if (!pre.isEmpty()) p.setPresupuesto(new BigDecimal(pre));
-        System.out.print("ID Cliente: ");
-        p.setIdCliente(Integer.parseInt(scanner.nextLine()));
+    private void crearHistoriaUsuario() {
+        System.out.println("\n--- Nueva historia de usuario ---");
+        System.out.print("Titulo: ");
+        String titulo = scanner.nextLine();
+        System.out.print("Prioridad (1-5): ");
+        int prioridad = Integer.parseInt(scanner.nextLine());
+        System.out.printf("Story points %s: ", HistoriaUsuario.FIBONACCI);
+        int sp = Integer.parseInt(scanner.nextLine());
 
-        Proyecto creado = proyectoService.crear(p);
-        System.out.println("[OK] Proyecto creado con ID " + creado.getIdProyecto());
+        HistoriaUsuario h = new HistoriaUsuario(titulo, prioridad, 1, sp, 1);
+        servicio.crear(h);
+        System.out.println("[OK] Guardada en MySQL: " + h);
     }
 
-    private static void listarTableroPorSprint() throws Exception {
-        System.out.print("ID del sprint: ");
-        int idSprint = Integer.parseInt(scanner.nextLine());
-        List<HistoriaUsuario> historias = historiaService.listarPorSprint(idSprint);
+    private void crearTarea() {
+        System.out.println("\n--- Nueva tarea tecnica ---");
+        System.out.print("Titulo: ");
+        String titulo = scanner.nextLine();
+        System.out.print("Prioridad (1-5): ");
+        int prioridad = Integer.parseInt(scanner.nextLine());
+        System.out.print("Horas estimadas: ");
+        double horas = Double.parseDouble(scanner.nextLine());
 
-        System.out.println("\n--- Tablero Kanban Sprint " + idSprint + " ---");
-        for (Estado e : Estado.values()) {
-            if (e == Estado.CANCELADA) continue;
-            System.out.println("\n[" + e + "]");
-            historias.stream()
-                .filter(h -> h.getEstado() == e)
-                .forEach(h -> System.out.println("  " + h));
+        Tarea t = new Tarea(titulo, prioridad, 1, horas, 1);
+        servicio.crear(t);
+        System.out.println("[OK] Guardada en MySQL: " + t);
+    }
+
+    private void listarTodos() {
+        System.out.println("\n--- Todos los tickets (desde MySQL) ---");
+        for (Ticket t : servicio.listarOrdenadoPorPrioridad()) {
+            System.out.println("  " + t);
         }
     }
 
-    private static void crearHistoria() throws Exception {
-        HistoriaUsuario h = new HistoriaUsuario();
-        System.out.print("Titulo: ");
-        h.setTitulo(scanner.nextLine());
-        System.out.print("Descripcion: ");
-        h.setDescripcion(scanner.nextLine());
-        System.out.print("Criterios de aceptacion: ");
-        h.setCriteriosAceptacion(scanner.nextLine());
-        System.out.print("Story points: ");
-        String sp = scanner.nextLine();
-        if (!sp.isEmpty()) h.setStoryPoints(Integer.parseInt(sp));
-        System.out.print("Prioridad (1-5): ");
-        h.setPrioridad(Integer.parseInt(scanner.nextLine()));
-        System.out.print("ID Epica: ");
-        h.setIdEpica(Integer.parseInt(scanner.nextLine()));
-        System.out.print("ID Sprint (vacio para backlog): ");
-        String sprint = scanner.nextLine();
-        if (!sprint.isEmpty()) h.setIdSprint(Integer.parseInt(sprint));
-        System.out.print("ID Usuario asignado (vacio si no aplica): ");
-        String asig = scanner.nextLine();
-        if (!asig.isEmpty()) h.setIdUsuarioAsignado(Integer.parseInt(asig));
-
-        HistoriaUsuario creada = historiaService.crear(h);
-        System.out.println("[OK] Historia creada con ID " + creada.getIdHistoria());
+    private void listarPorPrioridad() {
+        System.out.println("\n--- Tickets ordenados por prioridad (quicksort) ---");
+        List<Ticket> ordenados = servicio.listarOrdenadoPorPrioridad();
+        for (int i = 0; i < ordenados.size(); i++) {
+            System.out.printf("  %2d) %s%n", i + 1, ordenados.get(i));
+        }
     }
 
-    private static void moverHistoria() throws Exception {
-        System.out.print("ID Historia: ");
-        int idH = Integer.parseInt(scanner.nextLine());
+    private void filtrarPorEstado() {
+        System.out.println("\n--- Filtrar por estado ---");
+        System.out.print("Estado (POR_HACER, EN_PROGRESO, EN_REVISION, HECHO, CANCELADA): ");
+        Estado e = Estado.valueOf(scanner.nextLine().trim().toUpperCase());
+        List<Ticket> filtrados = servicio.filtrarPorEstado(e);
+        System.out.printf("[%d tickets en estado %s]%n", filtrados.size(), e);
+        for (Ticket t : filtrados) {
+            System.out.println("  " + t);
+        }
+    }
+
+    private void moverEstado() {
+        System.out.println("\n--- Mover ticket a otro estado ---");
+        System.out.print("ID del ticket: ");
+        int id = Integer.parseInt(scanner.nextLine());
         System.out.print("Nuevo estado (POR_HACER, EN_PROGRESO, EN_REVISION, HECHO, CANCELADA): ");
         Estado destino = Estado.valueOf(scanner.nextLine().trim().toUpperCase());
 
-        boolean ok = historiaService.moverEstado(idH, destino, USUARIO_OPERADOR_ID);
-        System.out.println(ok ? "[OK] Estado actualizado y auditoria registrada"
-                              : "[FALLO] No se pudo actualizar");
+        servicio.moverEstado(id, destino);
+        System.out.printf("[OK] Ticket #%d ahora esta en %s (persistido en MySQL)%n", id, destino);
+        System.out.printf("     Historial disponible: %d movimientos.%n", servicio.historialDisponible());
+    }
+
+    private void deshacerUltimoMovimiento() {
+        System.out.println("\n--- Deshacer ultimo movimiento ---");
+        if (servicio.deshacerUltimoMovimiento()) {
+            System.out.println("[OK] Ultimo movimiento revertido en MySQL.");
+        } else {
+            System.out.println("[INFO] No hay movimientos por deshacer en esta sesion.");
+        }
+    }
+
+    private void calcularEsfuerzoTotal() {
+        double total = servicio.calcularEsfuerzoTotal();
+        System.out.printf("%n[Esfuerzo total del backlog] %.2f horas (sumando polimorficamente)%n", total);
+    }
+
+    private void buscarTicket() {
+        System.out.print("\nID del ticket a buscar: ");
+        int id = Integer.parseInt(scanner.nextLine());
+        Ticket t = servicio.buscarPorId(id);
+        System.out.println("[Encontrado] " + t);
+        System.out.printf("Tipo: %s | Esfuerzo individual: %.2f%n",
+            t.getTipo(), t.calcularEsfuerzo());
     }
 }

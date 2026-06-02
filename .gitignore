@@ -1,23 +1,24 @@
-# Build output
-target/
-out/
+# Compilados
 build/
-bin/
+target/
+*.class
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
 
 # IDE
 .idea/
 *.iml
 .vscode/
 .settings/
-.classpath
 .project
+.classpath
 
-# Logs
-*.log
-
-# OS
+# Sistema
 .DS_Store
 Thumbs.db
 
-# Optional local lib (en lugar de Maven)
-lib/
+# Logs
+*.log

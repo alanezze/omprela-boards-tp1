@@ -1,0 +1,22 @@
+====================================================================
+DRIVER MYSQL - INSTRUCCIONES
+====================================================================
+
+Para que el prototipo se conecte a MySQL necesitas el driver JDBC
+(mysql-connector-j). Tenes que descargarlo y colocarlo en ESTA carpeta (lib/).
+
+DESCARGA DIRECTA (un solo archivo .jar):
+
+  https://dev.mysql.com/downloads/connector/j/
+  -> Elegi "Platform Independent" -> descarga el ZIP
+  -> Adentro viene "mysql-connector-j-9.x.x.jar"
+  -> Copia ESE .jar a esta carpeta lib/
+
+O por consola (si tenes curl):
+
+  curl -L -o mysql-connector-j.jar ^
+    "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar"
+
+El archivo pesa alrededor de 2.5 MB. Una vez en lib/, segui las
+instrucciones del README para compilar y ejecutar.
+====================================================================

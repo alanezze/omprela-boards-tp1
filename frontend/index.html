@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMPRELA-Boards · Tablero Kanban</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Calibri, sans-serif; background: #F4F8F8; color: #2D2D2D; padding: 24px; }
+  header { margin-bottom: 20px; }
+  h1 { color: #0E5656; font-size: 26px; }
+  .subtitulo { color: #167B7B; margin-top: 4px; font-size: 14px; }
+  .toolbar { margin: 18px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { background: #0E5656; color: white; border: none; padding: 9px 16px; border-radius: 4px;
+           cursor: pointer; font-size: 13px; transition: background .15s; }
+  button:hover { background: #167B7B; }
+  button.alt { background: #FC4C24; }
+  button.alt:hover { background: #d63d18; }
+  .info { margin-left: auto; font-size: 13px; color: #0E5656; font-weight: bold; }
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .col { background: white; border-top: 4px solid #0E5656; padding: 14px; border-radius: 6px;
+         min-height: 460px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .col h2 { color: #0E5656; font-size: 13px; padding-bottom: 10px; border-bottom: 1px solid #A8D4D4;
+            margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; display: flex;
+            justify-content: space-between; }
+  .col h2 .cuenta { background: #E8F2F2; color: #0E5656; border-radius: 10px; padding: 0 8px; font-size: 11px; }
+  .card { background: #F4FAFA; border-left: 4px solid #167B7B; padding: 11px; margin-bottom: 11px;
+          border-radius: 4px; cursor: pointer; transition: transform .1s, box-shadow .1s; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+  .card.tarea { border-left-color: #FC4C24; }
+  .card .titulo { font-weight: bold; color: #0E5656; margin-bottom: 6px; font-size: 13px; }
+  .card .meta { font-size: 11px; color: #555; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px;
+           color: white; background: #0E5656; margin-right: 4px; font-weight: bold; }
+  .badge.tarea { background: #FC4C24; }
+  .badge.prio1 { background: #C62828; }
+  .badge.prio2 { background: #E65100; }
+  .badge.prio3 { background: #F9A825; color: #333; }
+  .badge.prio4, .badge.prio5 { background: #9E9E9E; }
+  .hint { font-size: 11px; color: #999; font-style: italic; margin-top: 8px; }
+  dialog { border: none; border-radius: 8px; padding: 0; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+  dialog::backdrop { background: rgba(0,0,0,0.4); }
+  .modal { padding: 22px; min-width: 320px; }
+  .modal h3 { color: #0E5656; margin-bottom: 16px; }
+  .modal label { display: block; font-size: 12px; color: #555; margin: 10px 0 3px; }
+  .modal input, .modal select { width: 100%; padding: 7px; border: 1px solid #A8C8C8; border-radius: 4px; font-size: 13px; }
+  .modal .acciones { margin-top: 18px; display: flex; gap: 8px; justify-content: flex-end; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+           background: #2D2D2D; color: white; padding: 12px 20px; border-radius: 6px; font-size: 13px;
+           opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 80%; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #C62828; }
+  .toast.ok { background: #167B7B; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>OMPRELA-Boards · Tablero Kanban</h1>
+    <p class="subtitulo">Prototipo TP3 — Sistema de gestión de proyectos y tareas · Universidad Siglo 21</p>
+  </header>
+
+  <div class="toolbar">
+    <button onclick="abrirAltaHistoria()">+ Nueva historia</button>
+    <button onclick="abrirAltaTarea()">+ Nueva tarea</button>
+    <button class="alt" onclick="deshacer()">↶ Deshacer</button>
+    <button onclick="mostrarEsfuerzo()">Σ Calcular esfuerzo total</button>
+    <span class="info" id="info"></span>
+  </div>
+
+  <div class="board">
+    <div class="col" id="col-POR_HACER"><h2>Por hacer <span class="cuenta">0</span></h2></div>
+    <div class="col" id="col-EN_PROGRESO"><h2>En progreso <span class="cuenta">0</span></h2></div>
+    <div class="col" id="col-EN_REVISION"><h2>En revisión <span class="cuenta">0</span></h2></div>
+    <div class="col" id="col-HECHO"><h2>Hecho <span class="cuenta">0</span></h2></div>
+  </div>
+
+  <p class="hint">Hacé click en una tarjeta para avanzarla al siguiente estado. El sistema valida las transiciones igual que el código Java (no se puede saltar de "Por hacer" a "Hecho" directo).</p>
+
+  <!-- Modal alta -->
+  <dialog id="modal">
+    <div class="modal">
+      <h3 id="modal-titulo">Nuevo ticket</h3>
+      <label>Título</label>
+      <input id="f-titulo" type="text" placeholder="Ej: Login de usuarios">
+      <label>Prioridad (1 = máxima, 5 = mínima)</label>
+      <select id="f-prioridad">
+        <option value="1">1 - Crítica</option>
+        <option value="2">2 - Alta</option>
+        <option value="3" selected>3 - Media</option>
+        <option value="4">4 - Baja</option>
+        <option value="5">5 - Mínima</option>
+      </select>
+      <div id="campo-sp">
+        <label>Story Points (Fibonacci)</label>
+        <select id="f-sp">
+          <option>1</option><option>2</option><option selected>3</option>
+          <option>5</option><option>8</option><option>13</option><option>21</option>
+        </select>
+      </div>
+      <div id="campo-horas" style="display:none">
+        <label>Horas estimadas</label>
+        <input id="f-horas" type="number" min="0.5" step="0.5" value="4">
+      </div>
+      <div class="acciones">
+        <button class="alt" onclick="document.getElementById('modal').close()">Cancelar</button>
+        <button onclick="guardarTicket()">Crear</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   LÓGICA POO REIMPLEMENTADA EN JAVASCRIPT
+   Replica la jerarquía del código Java: Ticket (abstracto) -> Historia / Tarea
+   con encapsulamiento, herencia, polimorfismo y validación de transiciones.
+   ========================================================================= */
+
+const ESTADOS = ["POR_HACER", "EN_PROGRESO", "EN_REVISION", "HECHO"];
+const FIBONACCI = [1, 2, 3, 5, 8, 13, 21];
+
+// Clase base (abstracción + encapsulamiento via convención _campo)
+class Ticket {
+  constructor(titulo, prioridad) {
+    if (!titulo || !titulo.trim()) throw new Error("El título es obligatorio");
+    if (prioridad < 1 || prioridad > 5) throw new Error("La prioridad debe estar entre 1 y 5");
+    this._id = Ticket.proximoId++;
+    this._titulo = titulo.trim();
+    this._prioridad = prioridad;
+    this._estado = "POR_HACER";
+  }
+  get id() { return this._id; }
+  get titulo() { return this._titulo; }
+  get prioridad() { return this._prioridad; }
+  get estado() { return this._estado; }
+
+  // Reglas de transición (idénticas al Java)
+  puedeTransicionarA(destino) {
+    if (this._estado === "HECHO" || this._estado === "CANCELADA") return false;
+    switch (this._estado) {
+      case "POR_HACER":   return destino === "EN_PROGRESO";
+      case "EN_PROGRESO": return destino === "EN_REVISION";
+      case "EN_REVISION": return destino === "HECHO" || destino === "EN_PROGRESO";
+      default: return false;
+    }
+  }
+  cambiarEstado(destino) {
+    if (!this.puedeTransicionarA(destino))
+      throw new Error(`Transición inválida: no se puede pasar de ${this._estado} a ${destino}`);
+    this._estado = destino;
+  }
+  // Métodos "abstractos" - cada subclase los implementa (polimorfismo)
+  getTipo() { throw new Error("abstracto"); }
+  calcularEsfuerzo() { throw new Error("abstracto"); }
+}
+Ticket.proximoId = 1;
+
+// Subclase Historia (herencia + polimorfismo)
+class HistoriaUsuario extends Ticket {
+  constructor(titulo, prioridad, storyPoints) {
+    super(titulo, prioridad);
+    if (!FIBONACCI.includes(storyPoints)) throw new Error("Story points debe ser Fibonacci");
+    this._storyPoints = storyPoints;
+  }
+  get storyPoints() { return this._storyPoints; }
+  getTipo() { return "HISTORIA"; }
+  calcularEsfuerzo() { return this._storyPoints * 4; }  // 1 SP = 4h
+}
+
+// Subclase Tarea (herencia + polimorfismo)
+class Tarea extends Ticket {
+  constructor(titulo, prioridad, horas) {
+    super(titulo, prioridad);
+    if (horas <= 0) throw new Error("Las horas deben ser positivas");
+    this._horas = horas;
+  }
+  get horas() { return this._horas; }
+  getTipo() { return "TAREA"; }
+  calcularEsfuerzo() { return this._horas; }
+}
+
+// "Servicio" con la lista de tickets y la pila de deshacer
+const tickets = [];
+const historial = []; // pila LIFO de {id, estadoAnterior}
+
+function seed() {
+  tickets.push(new HistoriaUsuario("Login de usuarios", 1, 3));
+  tickets.push(new HistoriaUsuario("CRUD de proyectos", 1, 5));
+  tickets.push(new HistoriaUsuario("Tablero Kanban", 1, 8));
+  const t1 = new Tarea("Diseñar tabla usuarios", 2, 2);
+  const t2 = new Tarea("Endpoint POST /login", 1, 4);
+  const t3 = new Tarea("Validación bcrypt", 3, 3);
+  tickets.push(t1, t2, t3);
+}
+
+/* ============ RENDER ============ */
+function render() {
+  for (const est of ESTADOS) {
+    const col = document.getElementById("col-" + est);
+    const titulo = col.querySelector("h2").outerHTML;
+    const enEstado = tickets.filter(t => t.estado === est)
+                            .sort((a,b) => a.prioridad - b.prioridad || a.id - b.id);
+    col.innerHTML = titulo;
+    col.querySelector(".cuenta").textContent = enEstado.length;
+    for (const t of enEstado) col.appendChild(card(t));
+  }
+  const totalEsf = tickets.reduce((s,t) => s + t.calcularEsfuerzo(), 0);
+  document.getElementById("info").textContent =
+    `${tickets.length} tickets · ${totalEsf} h de esfuerzo total`;
+}
+
+function card(t) {
+  const div = document.createElement("div");
+  const esTarea = t.getTipo() === "TAREA";
+  div.className = "card" + (esTarea ? " tarea" : "");
+  div.innerHTML = `
+    <div class="titulo">${escapar(t.titulo)}</div>
+    <div class="meta">
+      <span class="badge${esTarea ? " tarea" : ""}">${t.getTipo()}</span>
+      <span class="badge prio${t.prioridad}">P${t.prioridad}</span>
+      ${esTarea ? "Est: " + t.horas + "h" : "SP: " + t.storyPoints}
+    </div>`;
+  div.onclick = () => avanzar(t);
+  return div;
+}
+
+function avanzar(t) {
+  const sig = { POR_HACER:"EN_PROGRESO", EN_PROGRESO:"EN_REVISION", EN_REVISION:"HECHO" }[t.estado];
+  if (!sig) { toast("El ticket ya está en estado final", "error"); return; }
+  try {
+    const anterior = t.estado;
+    t.cambiarEstado(sig);
+    historial.push({ id: t.id, estadoAnterior: anterior });
+    render();
+    toast(`Ticket #${t.id} movido a ${sig}`, "ok");
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+function deshacer() {
+  if (historial.length === 0) { toast("No hay movimientos para deshacer", "error"); return; }
+  const m = historial.pop();
+  const t = tickets.find(x => x.id === m.id);
+  t._estado = m.estadoAnterior;
+  render();
+  toast(`Movimiento de #${m.id} deshecho`, "ok");
+}
+
+function mostrarEsfuerzo() {
+  const total = tickets.reduce((s,t) => s + t.calcularEsfuerzo(), 0);
+  const h = tickets.filter(t=>t.getTipo()==="HISTORIA").reduce((s,t)=>s+t.calcularEsfuerzo(),0);
+  const ta = tickets.filter(t=>t.getTipo()==="TAREA").reduce((s,t)=>s+t.calcularEsfuerzo(),0);
+  toast(`Esfuerzo total: ${total}h (historias: ${h}h + tareas: ${ta}h)`, "ok");
+}
+
+/* ============ ALTA DE TICKETS ============ */
+let tipoAlta = "historia";
+function abrirAltaHistoria() {
+  tipoAlta = "historia";
+  document.getElementById("modal-titulo").textContent = "Nueva historia de usuario";
+  document.getElementById("campo-sp").style.display = "block";
+  document.getElementById("campo-horas").style.display = "none";
+  document.getElementById("f-titulo").value = "";
+  document.getElementById("modal").showModal();
+}
+function abrirAltaTarea() {
+  tipoAlta = "tarea";
+  document.getElementById("modal-titulo").textContent = "Nueva tarea técnica";
+  document.getElementById("campo-sp").style.display = "none";
+  document.getElementById("campo-horas").style.display = "block";
+  document.getElementById("f-titulo").value = "";
+  document.getElementById("modal").showModal();
+}
+function guardarTicket() {
+  try {
+    const titulo = document.getElementById("f-titulo").value;
+    const prio = parseInt(document.getElementById("f-prioridad").value);
+    let nuevo;
+    if (tipoAlta === "historia") {
+      const sp = parseInt(document.getElementById("f-sp").value);
+      nuevo = new HistoriaUsuario(titulo, prio, sp);
+    } else {
+      const horas = parseFloat(document.getElementById("f-horas").value);
+      nuevo = new Tarea(titulo, prio, horas);
+    }
+    tickets.push(nuevo);
+    document.getElementById("modal").close();
+    render();
+    toast(`${nuevo.getTipo()} #${nuevo.id} creada`, "ok");
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+/* ============ UTILES ============ */
+function escapar(s) {
+  const d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+}
+let toastTimer;
+function toast(msg, tipo) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast show " + (tipo || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = "toast", 3000);
+}
+
+/* ============ INICIO ============ */
+seed();
+render();
+</script>
+</body>
+</html>

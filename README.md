@@ -1,7 +1,7 @@
-# OMPRELA-Boards · Prototipo
+# OMPRELA-Boards · Prototipo (TP1 + TP2 + TP3)
 
 Sistema de gestión de proyectos y tareas para equipos de Desarrollo y Producto.
-Prototipo desarrollado como parte del Trabajo Práctico N° 1 de la materia
+Prototipo desarrollado como parte de los Trabajos Prácticos N° 1, 2 y 3 de la materia
 **Seminario de Práctica de Informática (INF275-11807)** — Universidad Siglo 21.
 
 **Alumno:** Chavez Alan Ezequiel · Legajo VINF018147
@@ -9,188 +9,71 @@ Prototipo desarrollado como parte del Trabajo Práctico N° 1 de la materia
 
 ---
 
-## Alcance del prototipo
+## Novedades del TP3 (POO)
 
-Esta primera versión es un **módulo operacional** (Kendall y Kendall, 2011)
-que cubre las funcionalidades centrales de gestión sobre las que se construirá
-el sistema final:
+El TP3 refactoriza el modelo aplicando los 4 pilares de la programación orientada a objetos:
 
-- ABM de proyectos (CU02 — Crear proyecto).
-- ABM de historias de usuario (CU05 — Crear historia).
-- Listado del tablero Kanban por sprint (CU09 — Consultar tablero).
-- Movimiento de tickets entre estados con validación de transiciones legales y
-  registro en log de auditoría (CU10 — Mover ticket de estado).
+- **Abstracción:** clase abstracta `Ticket` + interfaces `Auditable`, `Priorizable`, `Notificable`.
+- **Herencia:** `HistoriaUsuario` y `Tarea` extienden de `Ticket`; jerarquía de excepciones.
+- **Polimorfismo:** métodos `getTipo()` y `calcularEsfuerzo()` sobrescritos; genéricos.
+- **Encapsulamiento:** atributos privados con validaciones en los setters.
 
-No incluye autenticación, vista web, reportes ni notificaciones por email; estos
-módulos se desarrollarán en las siguientes iteraciones.
+Incluye además:
+- Manejo de excepciones propias (`OmprelaException` y subclases).
+- Estructuras de datos propias: `Pila<T>` (LIFO) y `Cola<T>` (FIFO).
+- Algoritmos: Quicksort, burbuja, búsqueda binaria y lineal.
+- Menú de consola interactivo (`MainConsola`) con 11 opciones.
+- API REST con Spring Boot (`TicketController`) + frontend HTML/JS (`frontend/index.html`).
 
-## Tecnologías
-
-| Capa             | Tecnología                                |
-|------------------|--------------------------------------------|
-| Lenguaje         | Java 17                                    |
-| Persistencia     | MySQL 8.0+                                 |
-| Acceso a datos   | JDBC (mysql-connector-j 9.x)               |
-| Patrón           | MVC (Modelo · Vista/Controlador · Servicio · DAO) |
-| Build / deps     | Maven 3.9 (`pom.xml`)                      |
-| Testing          | JUnit 5 (Jupiter)                          |
-| IDE recomendado  | IntelliJ IDEA / Eclipse / NetBeans         |
+---
 
 ## Estructura del proyecto
 
 ```
-prototipo/
+prototipo_v3/
+├── pom.xml                          # Configuración Maven + Spring Boot
+├── frontend/
+│   └── index.html                   # Frontend Kanban (consume la API REST)
 ├── sql/
-│   └── 01_create_omprela_boards.sql       # Script DDL legado (referencia)
-├── src/main/resources/
-│   ├── db.properties                      # Credenciales y URL de MySQL
-│   └── migrations/
-│       ├── migrations.list                # Orden de aplicación
-│       ├── V001__schema.sql               # Tablas
-│       ├── V002__indices.sql              # Índices secundarios
-│       ├── V003__vistas.sql               # Vistas analíticas
-│       └── V004__datos_prueba.sql         # Carga inicial
-├── src/main/java/com/omprela/boards/
-│   ├── model/         # Entidades de dominio
-│   │   ├── Proyecto.java
-│   │   └── HistoriaUsuario.java
-│   ├── dao/           # Acceso a datos vía JDBC
-│   │   ├── ProyectoDAO.java
-│   │   └── HistoriaUsuarioDAO.java
-│   ├── service/       # Reglas de negocio
-│   │   ├── ProyectoService.java
-│   │   └── HistoriaUsuarioService.java
-│   ├── util/
-│   │   ├── DBConnection.java              # Gestor de conexión Singleton
-│   │   └── MigrationRunner.java           # Aplica migraciones al iniciar
-│   └── view/
-│       └── MainConsola.java               # Vista de consola del prototipo
-└── README.md
+│   ├── 01_create_omprela_boards.sql # Script DDL + datos de prueba (TP1)
+│   └── 02_consultas_tp2.sql         # 10 consultas SQL (TP2)
+└── src/main/java/com/omprela/boards/
+    ├── model/
+    │   ├── Ticket.java              # Clase ABSTRACTA base
+    │   ├── HistoriaUsuario.java     # extends Ticket implements Notificable
+    │   ├── Tarea.java               # extends Ticket
+    │   ├── Proyecto.java            # implements Auditable
+    │   ├── interfaces/              # Auditable, Priorizable, Notificable
+    │   └── excepciones/             # OmprelaException + 3 subclases
+    ├── algoritmos/
+    │   ├── AlgoritmosTickets.java   # Quicksort, burbuja, búsquedas
+    │   ├── Pila.java                # Pila genérica LIFO
+    │   └── Cola.java                # Cola genérica FIFO
+    ├── service/
+    │   └── TicketService.java       # Servicio polimórfico
+    ├── view/
+    │   └── MainConsola.java         # Menú de consola interactivo
+    └── api/
+        └── TicketController.java    # API REST (Spring Boot)
 ```
 
-## Cómo ejecutarlo
+## Cómo ejecutar
 
-> **Bootstrap automático.** No hace falta correr el script SQL a mano:
-> al iniciar `MainConsola`, la aplicación se conecta a MySQL, crea la base
-> `omprela_boards` si no existe y aplica las migraciones pendientes. Cada
-> migración se registra en la tabla `schema_migrations` y se ejecuta una
-> sola vez.
-
-1. **Levantar MySQL 8** y asegurarse de que el usuario configurado tenga
-   permiso para crear bases de datos.
-
-2. **Configurar credenciales**
-   Editar [`src/main/resources/db.properties`](src/main/resources/db.properties):
-   ```properties
-   db.host=localhost
-   db.port=3306
-   db.name=omprela_boards
-   db.user=root
-   db.password=tu_password
-   ```
-   Ya no es necesario tocar `DBConnection.java`.
-
-3. **Compilar y ejecutar**
-
-   Con Maven (recomendado):
-   ```bash
-   mvn -q exec:java -Dexec.mainClass=com.omprela.boards.view.MainConsola
-   ```
-   o desde el IDE: importar como proyecto Maven y ejecutar la clase
-   `com.omprela.boards.view.MainConsola`. Maven se encarga de descargar
-   `mysql-connector-j` y armar el classpath.
-
-   Sin Maven (legacy): agregar `mysql-connector-j-9.x.x.jar` al classpath
-   manualmente, incluir `src/main/resources/` como carpeta de recursos
-   y ejecutar la clase principal.
-
-   En el primer arranque verás algo como:
-   ```
-   [migrations] aplicando V001__schema.sql
-   [migrations] aplicando V002__indices.sql
-   [migrations] aplicando V003__vistas.sql
-   [migrations] aplicando V004__datos_prueba.sql
-   [migrations] 4 migracion(es) aplicadas correctamente
-   [OK] Conexion a MySQL establecida
-   ```
-   En arranques posteriores:
-   ```
-   [migrations] esquema al dia (4 migraciones registradas)
-   ```
-
-### Agregar nuevas migraciones
-
-1. Crear `src/main/resources/migrations/V005__descripcion.sql`.
-2. Agregar el nombre del archivo al final de `migrations.list`.
-3. En el próximo arranque la migración se aplica automáticamente.
-
-Convenciones, reglas y troubleshooting completos en
-[`docs/migraciones.md`](docs/migraciones.md).
-
-## Tests
-
+### Opción 1: Menú de consola (sin dependencias externas)
 ```bash
-# Tests unitarios (no requieren MySQL): solo el parser SQL
-mvn test
-
-# Suite completa (incluye integración contra MySQL real)
-mvn -Dintegration -Ddb.password=TU_PASS test
+cd src/main/java
+javac -d ../../../build com/omprela/boards/**/*.java com/omprela/boards/*.java
+java -cp ../../../build com.omprela.boards.view.MainConsola
 ```
 
-**¡Importante!** El test de integración (`BootstrapDBIT`) **dropea
-`omprela_boards` antes de cada corrida** para validar el flujo de
-creación desde cero. No correr contra una base con datos reales.
-
-Cobertura actual:
-
-| Suite                          | Tests | Qué valida                                          |
-|--------------------------------|------:|------------------------------------------------------|
-| `MigrationRunnerParserTest`    |    10 | Parser SQL: comillas, comentarios, escape, edge cases |
-| `BootstrapDBIT`                |     7 | DB creada, 4 migraciones aplicadas, 10 tablas + 2 vistas + 4 índices, conteos de seed data, idempotencia |
-
-Variables/properties para configuración en tiempo de ejecución (todas
-con override por `-Dprop=valor` o variable de entorno):
-
-| Property      | Env var      | Default                              |
-|---------------|--------------|---------------------------------------|
-| `db.host`     | `DB_HOST`    | `localhost`                           |
-| `db.port`     | `DB_PORT`    | `3306`                                |
-| `db.user`     | `DB_USER`    | `root`                                |
-| `db.password` | `DB_PASSWORD`| `(de db.properties)`                  |
-| `db.name`     | `DB_NAME`    | `omprela_boards`                      |
-| `db.timezone` | `DB_TIMEZONE`| `America/Argentina/Buenos_Aires`      |
-
-### Script SQL legado
-
-[`sql/01_create_omprela_boards.sql`](sql/01_create_omprela_boards.sql) se
-conserva como referencia (incluye el `DROP DATABASE` original). **No** se
-necesita ejecutarlo manualmente. Si previamente lo corriste a mano, dropeá
-la base antes del primer arranque para que el sistema de migraciones
-quede limpio:
-```sql
-DROP DATABASE omprela_boards;
+### Opción 2: API REST con Spring Boot
+```bash
+mvn spring-boot:run
+# La API queda disponible en http://localhost:8080/api/tickets
+# Abrir frontend/index.html en el navegador
 ```
 
-## Modelo de datos
-
-El esquema implementa las nueve entidades del diagrama de dominio del documento
-del TP1: `clientes`, `usuarios`, `proyectos`, `epicas`, `sprints`,
-`historias_usuario`, `tareas`, `registro_horas` y `comentarios`. Adicionalmente
-se incluye una tabla `log_auditoria` para registrar las transiciones de estado
-de los tickets, dando cumplimiento al RF12 (auditoría de cambios).
-
-Las restricciones `CHECK` y las claves foráneas garantizan la integridad
-referencial y de dominio. Se incluyen dos vistas (`v_backlog_priorizado` y
-`v_velocity_proyecto`) que serán consumidas por la vista Producto del sistema.
-
-## Próximos pasos
-
-- Migrar la capa de presentación a Spring Boot + Thymeleaf.
-- Incorporar Spring Security con JWT y `bcrypt` para CU01 (Autenticar usuario).
-- Implementar el módulo de notificaciones (SMTP) para CU16.
-- Construir los dashboards de métricas (velocity, burndown, lead time, throughput).
-
-## Referencia
-
-Kendall, K. E., y Kendall, J. E. (2011). *Análisis y diseño de sistemas* (8.ª ed.).
-Pearson Education.
+## Base de datos
+```bash
+mysql -u root -p < sql/01_create_omprela_boards.sql
+```
