@@ -147,9 +147,14 @@ public class BootstrapDB {
     /**
      * Paso 3: migraciones livianas idempotentes sobre el esquema existente.
      * <p>
-     * Permite el estado CANCELADA en la tabla {@code tareas} (el script original solo
-     * lo admitia en historias), para que la opcion "mover de estados" funcione completa
-     * tambien sobre tareas. Si la migracion ya fue aplicada, los errores se ignoran.
+     * Aplica dos cambios sobre la tabla {@code tareas}:
+     * <ul>
+     *   <li>permitir el estado CANCELADA (el script original solo lo admitia en
+     *       historias), para que "mover de estados" funcione completo en tareas;</li>
+     *   <li>agregar la columna {@code prioridad} para que cada tarea persista su propia
+     *       prioridad (antes se usaba un valor por defecto al recargar).</li>
+     * </ul>
+     * Cada paso se ignora si ya fue aplicado (idempotente).
      */
     private static void aplicarMigraciones() {
         try (Connection con = DBConnection.getConnection();
@@ -160,6 +165,15 @@ public class BootstrapDB {
                 st.executeUpdate(
                     "ALTER TABLE tareas ADD CONSTRAINT chk_tareas_estado CHECK (estado IN " +
                     "('POR_HACER','EN_PROGRESO','EN_REVISION','HECHO','CANCELADA'))");
+            } catch (Exception ignored) { /* ya estaba aplicada */ }
+
+            // Columna prioridad en tareas (idempotente: falla si ya existe)
+            try {
+                st.executeUpdate("ALTER TABLE tareas ADD COLUMN prioridad INT NOT NULL DEFAULT 3");
+            } catch (Exception ignored) { /* la columna ya existe */ }
+            try {
+                st.executeUpdate(
+                    "ALTER TABLE tareas ADD CONSTRAINT chk_tareas_prioridad CHECK (prioridad BETWEEN 1 AND 5)");
             } catch (Exception ignored) { /* ya estaba aplicada */ }
         } catch (Exception e) {
             // Las migraciones no son criticas para arrancar: avisamos y seguimos.

@@ -37,9 +37,6 @@ public class TicketDAO {
     /** Usuario por defecto al que se atribuyen las acciones de auditoria (Alan, id=1). */
     private static final int ID_USUARIO_AUDITORIA = 1;
 
-    /** Tarea de prioridad por defecto (la tabla 'tareas' no persiste prioridad). */
-    private static final int PRIORIDAD_TAREA_DEFECTO = 3;
-
     // ============================================================
     //  ALTA
     // ============================================================
@@ -78,19 +75,20 @@ public class TicketDAO {
 
     private int insertarTarea(Tarea ta) {
         String sql = "INSERT INTO tareas " +
-            "(titulo, descripcion, horas_estimadas, horas_reales, estado, " +
+            "(titulo, descripcion, prioridad, horas_estimadas, horas_reales, estado, " +
             " id_historia, id_usuario_asignado) " +
-            "VALUES (?,?,?,?,?,?,?)";
+            "VALUES (?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = DBConnection.getConnection()
                 .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, ta.getTitulo());
             ps.setString(2, ta.getDescripcion());
-            if (ta.getHorasEstimadas() != null) ps.setDouble(3, ta.getHorasEstimadas());
-            else ps.setNull(3, java.sql.Types.DECIMAL);
-            ps.setDouble(4, ta.getHorasReales() == null ? 0.0 : ta.getHorasReales());
-            ps.setString(5, ta.getEstado().name());
-            ps.setInt(6, ta.getIdHistoria());             // NOT NULL en el esquema
-            ps.setNull(7, java.sql.Types.INTEGER);        // id_usuario_asignado opcional
+            ps.setInt(3, ta.getPrioridad());
+            if (ta.getHorasEstimadas() != null) ps.setDouble(4, ta.getHorasEstimadas());
+            else ps.setNull(4, java.sql.Types.DECIMAL);
+            ps.setDouble(5, ta.getHorasReales() == null ? 0.0 : ta.getHorasReales());
+            ps.setString(6, ta.getEstado().name());
+            ps.setInt(7, ta.getIdHistoria());             // NOT NULL en el esquema
+            ps.setNull(8, java.sql.Types.INTEGER);        // id_usuario_asignado opcional
             return ejecutarYObtenerId(ps, ta);
         } catch (SQLException e) {
             throw new RuntimeException("Error al insertar tarea: " + e.getMessage(), e);
@@ -126,7 +124,7 @@ public class TicketDAO {
             }
 
             try (ResultSet rs = st.executeQuery(
-                    "SELECT id_tarea, titulo, descripcion, horas_estimadas, horas_reales, estado, id_historia " +
+                    "SELECT id_tarea, titulo, descripcion, prioridad, horas_estimadas, horas_reales, estado, id_historia " +
                     "FROM tareas")) {
                 while (rs.next()) lista.add(mapearTarea(rs));
             }
@@ -143,7 +141,7 @@ public class TicketDAO {
                          "FROM historias_usuario WHERE id_historia = ?";
             return buscar(sql, id, true);
         } else {
-            String sql = "SELECT id_tarea, titulo, descripcion, horas_estimadas, horas_reales, estado, id_historia " +
+            String sql = "SELECT id_tarea, titulo, descripcion, prioridad, horas_estimadas, horas_reales, estado, id_historia " +
                          "FROM tareas WHERE id_tarea = ?";
             return buscar(sql, id, false);
         }
@@ -231,8 +229,7 @@ public class TicketDAO {
         ta.setId(rs.getInt("id_tarea"));
         ta.setTitulo(rs.getString("titulo"));
         ta.setDescripcion(rs.getString("descripcion"));
-        // La tabla 'tareas' no persiste prioridad: se usa un valor por defecto.
-        ta.setPrioridad(PRIORIDAD_TAREA_DEFECTO);
+        ta.setPrioridad(rs.getInt("prioridad"));
         double he = rs.getDouble("horas_estimadas");
         if (!rs.wasNull()) ta.setHorasEstimadas(he);
         double hr = rs.getDouble("horas_reales");
