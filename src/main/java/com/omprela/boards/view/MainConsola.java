@@ -6,6 +6,7 @@ import com.omprela.boards.model.Ticket;
 import com.omprela.boards.model.Ticket.Estado;
 import com.omprela.boards.model.excepciones.OmprelaException;
 import com.omprela.boards.service.TicketService;
+import com.omprela.boards.dao.TicketDAO;
 import com.omprela.boards.reporte.ReporteBacklog;
 import com.omprela.boards.archivo.ExportadorArchivos;
 import com.omprela.boards.util.DBConnection;
@@ -81,7 +82,7 @@ public class MainConsola {
                         System.out.println("\n[Saliendo] Conexion cerrada. Hasta luego.");
                         break;
                     default:
-                        System.out.println("Opcion invalida. Por favor elija entre 0 y 9.");
+                        System.out.println("Opcion invalida. Por favor elija entre 0 y 11.");
                 }
             } catch (OmprelaException ex) {
                 System.out.println("[ERROR DE NEGOCIO] " + ex.getMessage());
@@ -178,14 +179,27 @@ public class MainConsola {
 
     private void moverEstado() {
         System.out.println("\n--- Mover ticket a otro estado ---");
+        String tipo = pedirTipo();
         System.out.print("ID del ticket: ");
         int id = Integer.parseInt(scanner.nextLine());
         System.out.print("Nuevo estado (POR_HACER, EN_PROGRESO, EN_REVISION, HECHO, CANCELADA): ");
         Estado destino = Estado.valueOf(scanner.nextLine().trim().toUpperCase());
 
-        servicio.moverEstado(id, destino);
-        System.out.printf("[OK] Ticket #%d ahora esta en %s (persistido en MySQL)%n", id, destino);
+        servicio.moverEstado(tipo, id, destino);
+        System.out.printf("[OK] %s #%d ahora esta en %s (persistido en MySQL)%n", tipo, id, destino);
         System.out.printf("     Historial disponible: %d movimientos.%n", servicio.historialDisponible());
+    }
+
+    /**
+     * Pide el tipo de ticket. Como historias y tareas viven en tablas separadas
+     * con ids independientes, hay que indicar a cual pertenece el id.
+     */
+    private String pedirTipo() {
+        System.out.print("Tipo (H = historia / T = tarea): ");
+        String entrada = scanner.nextLine().trim().toUpperCase();
+        if (entrada.startsWith("H")) return TicketDAO.TIPO_HISTORIA;
+        if (entrada.startsWith("T")) return TicketDAO.TIPO_TAREA;
+        throw new NumberFormatException("tipo invalido (use H o T)");
     }
 
     private void deshacerUltimoMovimiento() {
@@ -203,9 +217,11 @@ public class MainConsola {
     }
 
     private void buscarTicket() {
-        System.out.print("\nID del ticket a buscar: ");
+        System.out.println("\n--- Buscar ticket ---");
+        String tipo = pedirTipo();
+        System.out.print("ID del ticket a buscar: ");
         int id = Integer.parseInt(scanner.nextLine());
-        Ticket t = servicio.buscarPorId(id);
+        Ticket t = servicio.buscarPorId(tipo, id);
         System.out.println("[Encontrado] " + t);
         System.out.printf("Tipo: %s | Esfuerzo individual: %.2f%n",
             t.getTipo(), t.calcularEsfuerzo());

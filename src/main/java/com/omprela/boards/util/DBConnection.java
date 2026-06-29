@@ -22,12 +22,14 @@ import java.sql.SQLException;
 public class DBConnection {
 
     // ===== CONFIGURACION DE LA BASE DE DATOS =====
-    // Si tu MySQL usa otro puerto o password, cambialo aqui:
-    private static final String HOST     = "localhost";
-    private static final String PUERTO   = "3306";          // puerto por defecto de MySQL
-    private static final String BASE     = "omprela_boards";
-    private static final String USUARIO  = "root";
-    private static final String PASSWORD = "clave123";
+    // Si tu MySQL usa otro puerto o password, cambialo aqui.
+    // Cada valor admite override por -D (system property), util para tests
+    // (p.ej. -Domprela.db=otra_base) sin tocar el codigo.
+    private static final String HOST     = System.getProperty("omprela.host", "localhost");
+    private static final String PUERTO   = System.getProperty("omprela.port", "3306");
+    private static final String BASE     = System.getProperty("omprela.db",   "omprela_boards");
+    private static final String USUARIO  = System.getProperty("omprela.user", "root");
+    private static final String PASSWORD = System.getProperty("omprela.password", "clave123");
 
     private static final String PARAMS =
         "?useSSL=false&serverTimezone=America/Argentina/Buenos_Aires&allowPublicKeyRetrieval=true";

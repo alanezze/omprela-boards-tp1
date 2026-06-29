@@ -6,8 +6,18 @@
 - El driver mysql-connector-j en la carpeta `lib/`
 
 ## Bootstrap automático
-NO hace falta correr scripts SQL a mano. Al iniciar, la app crea la base
-`omprela_boards`, las tablas y los datos de ejemplo automáticamente.
+NO hace falta correr scripts SQL a mano. Al iniciar, `BootstrapDB` ejecuta el
+script `sql/01_create_omprela_boards.sql` y crea **toda la base desde cero**:
+todas las tablas (clientes, usuarios, proyectos, épicas, sprints,
+`historias_usuario`, `tareas`, registro_horas, comentarios, log_auditoria + vistas)
+y carga el seeder. Es idempotente: si la base ya existe, conserva los datos.
+
+> IMPORTANTE: ejecutá la app desde la carpeta `prototipo_v4` (donde está la carpeta
+> `sql/`), porque el bootstrap lee el script desde ahí. Si lo corrés desde otro lado,
+> indicá la ruta con `-Domprela.sql=<ruta>`.
+
+Historias y tareas se guardan en **tablas separadas**; en el menú, para mover o buscar
+un ticket se pide el tipo (`H` = historia, `T` = tarea) además del id.
 
 ## Driver MySQL
 Descargá el driver y ponelo en `lib/`:

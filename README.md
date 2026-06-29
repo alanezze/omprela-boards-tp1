@@ -43,6 +43,21 @@ y agrega dos opciones nuevas al menú de consola (10 y 11):
 - **Patrón DAO** como patrón central: `dao/TicketDAO.java` aísla el acceso a MySQL,
   complementado con Singleton (`DBConnection`), MVC (capas model/view/service) y
   bootstrap automático de la base (`util/BootstrapDB.java`).
+- **Persistencia en tablas separadas**: las historias se guardan en `historias_usuario`
+  y las tareas en `tareas` (esquema relacional del TP1). Como cada tabla tiene su propio
+  id, las operaciones por ticket se identifican por **tipo + id** (en el menú se pide
+  `H` o `T`). Los cambios de estado se auditan en `log_auditoria`.
+
+### Bootstrap automático (crea toda la base desde cero)
+
+`BootstrapDB` ejecuta el script canónico [sql/01_create_omprela_boards.sql](sql/01_create_omprela_boards.sql)
+como **única fuente de verdad**: al arrancar, si la base aún no existe, crea **todas** las
+tablas (clientes, usuarios, proyectos, épicas, sprints, historias_usuario, tareas,
+registro_horas, comentarios, log_auditoria + vistas) y carga el **seeder** completo.
+Es **idempotente**: si la base ya estaba inicializada, no toca los datos.
+
+> Conexión configurable por system property (útil para tests): `-Domprela.db`, `-Domprela.user`,
+> `-Domprela.password`, `-Domprela.host`, `-Domprela.port`, y `-Domprela.sql` para la ruta del script.
 
 ---
 
