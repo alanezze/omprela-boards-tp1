@@ -40,10 +40,10 @@ public class TicketController {
         return servicio.listarOrdenadoPorPrioridad();
     }
 
-    /** GET /api/tickets/{id} - busca un ticket por su id. */
-    // @GetMapping("/{id}")
-    public Ticket buscar(/*@PathVariable*/ int id) {
-        return servicio.buscarPorId(id);
+    /** GET /api/tickets/{tipo}/{id} - busca un ticket por su tipo (HISTORIA/TAREA) e id. */
+    // @GetMapping("/{tipo}/{id}")
+    public Ticket buscar(/*@PathVariable*/ String tipo, /*@PathVariable*/ int id) {
+        return servicio.buscarPorId(tipo, id);
     }
 
     /** GET /api/tickets/estado/{estado} - filtra por estado. */
@@ -64,13 +64,15 @@ public class TicketController {
         return servicio.crear(t);
     }
 
-    /** PATCH /api/tickets/{id}/estado - mueve un ticket a otro estado. */
-    // @PatchMapping("/{id}/estado")
+    /** PATCH /api/tickets/{tipo}/{id}/estado - mueve un ticket a otro estado. */
+    // @PatchMapping("/{tipo}/{id}/estado")
     public Map<String, Object> moverEstado(
+            /*@PathVariable*/ String tipo,
             /*@PathVariable*/ int id,
             /*@RequestParam*/ Estado nuevoEstado) {
-        servicio.moverEstado(id, nuevoEstado);
+        servicio.moverEstado(tipo, id, nuevoEstado);
         Map<String, Object> resultado = new HashMap<>();
+        resultado.put("tipo", tipo);
         resultado.put("id", id);
         resultado.put("nuevoEstado", nuevoEstado);
         resultado.put("ok", true);
