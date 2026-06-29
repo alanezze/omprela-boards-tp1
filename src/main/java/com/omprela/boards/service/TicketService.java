@@ -40,13 +40,16 @@ public class TicketService {
     /**
      * Mueve un ticket a un nuevo estado, validando la transicion en el dominio
      * y persistiendo el cambio + el registro de auditoria en MySQL.
+     * <p>
+     * Como historias y tareas viven en tablas separadas con ids independientes,
+     * el ticket se identifica por la dupla (tipo, id).
      */
-    public void moverEstado(int idTicket, Estado nuevoEstado) {
-        Ticket t = buscarPorId(idTicket);
+    public void moverEstado(String tipo, int idTicket, Estado nuevoEstado) {
+        Ticket t = buscarPorId(tipo, idTicket);
         Estado anterior = t.getEstado();
         t.cambiarEstado(nuevoEstado);                 // valida (puede lanzar excepcion)
-        dao.actualizarEstado(idTicket, anterior, nuevoEstado);  // persiste + audita
-        historial.push(new MovimientoTicket(idTicket, anterior, nuevoEstado));
+        dao.actualizarEstado(tipo, idTicket, anterior, nuevoEstado);  // persiste + audita
+        historial.push(new MovimientoTicket(tipo, idTicket, anterior, nuevoEstado));
     }
 
     /**
@@ -56,15 +59,15 @@ public class TicketService {
         if (historial.isEmpty()) return false;
         MovimientoTicket m = historial.pop();
         // Revierte directamente en la base (sin validar la transicion inversa)
-        dao.actualizarEstado(m.idTicket, m.estadoNuevo, m.estadoAnterior);
+        dao.actualizarEstado(m.tipo, m.idTicket, m.estadoNuevo, m.estadoAnterior);
         return true;
     }
 
     // ============== CONSULTAS ==============
 
-    /** Busca un ticket por id; lanza excepcion si no existe. */
-    public Ticket buscarPorId(int id) {
-        Ticket t = dao.buscarPorId(id);
+    /** Busca un ticket por (tipo, id); lanza excepcion si no existe. */
+    public Ticket buscarPorId(String tipo, int id) {
+        Ticket t = dao.buscarPorId(tipo, id);
         if (t == null) throw new EntidadNoEncontradaException("Ticket", id);
         return t;
     }
@@ -102,10 +105,12 @@ public class TicketService {
 
     /** DTO interno para representar un movimiento historico. */
     private static class MovimientoTicket {
+        final String tipo;
         final int idTicket;
         final Estado estadoAnterior;
         final Estado estadoNuevo;
-        MovimientoTicket(int idTicket, Estado anterior, Estado nuevo) {
+        MovimientoTicket(String tipo, int idTicket, Estado anterior, Estado nuevo) {
+            this.tipo = tipo;
             this.idTicket = idTicket;
             this.estadoAnterior = anterior;
             this.estadoNuevo = nuevo;
