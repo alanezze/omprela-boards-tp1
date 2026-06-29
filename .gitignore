@@ -3,6 +3,9 @@ build/
 target/
 *.class
 
+# Salida generada por la app (reportes/logs)
+salida/
+
 # Maven
 .mvn/
 mvnw

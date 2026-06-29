@@ -6,6 +6,8 @@ import com.omprela.boards.model.Ticket;
 import com.omprela.boards.model.Ticket.Estado;
 import com.omprela.boards.model.excepciones.OmprelaException;
 import com.omprela.boards.service.TicketService;
+import com.omprela.boards.reporte.ReporteBacklog;
+import com.omprela.boards.archivo.ExportadorArchivos;
 import com.omprela.boards.util.DBConnection;
 import com.omprela.boards.util.BootstrapDB;
 
@@ -71,6 +73,8 @@ public class MainConsola {
                     case "7": deshacerUltimoMovimiento(); break;
                     case "8": calcularEsfuerzoTotal(); break;
                     case "9": buscarTicket(); break;
+                    case "10": mostrarReporte(); break;
+                    case "11": exportarBacklog(); break;
                     case "0":
                         salir = true;
                         DBConnection.close();
@@ -95,7 +99,7 @@ public class MainConsola {
 
     private void imprimirBanner() {
         System.out.println("=========================================================");
-        System.out.println(" OMPRELA-Boards - Prototipo Java POO + MySQL (TP3)");
+        System.out.println(" OMPRELA-Boards - Prototipo Java - Integrador Final (TP4)");
         System.out.println(" Universidad Siglo 21 - INF275");
         System.out.println(" Alumno: Chavez Alan Ezequiel - VINF018147");
         System.out.println("=========================================================");
@@ -112,6 +116,8 @@ public class MainConsola {
         System.out.println("7.  Deshacer ultimo movimiento (pila LIFO)");
         System.out.println("8.  Calcular esfuerzo total (polimorfismo)");
         System.out.println("9.  Buscar ticket por id");
+        System.out.println("10. Reporte del backlog (arreglos nativos)");
+        System.out.println("11. Exportar backlog a archivo CSV (java.io)");
         System.out.println("0.  Salir");
         System.out.print("\nElija una opcion: ");
     }
@@ -203,5 +209,40 @@ public class MainConsola {
         System.out.println("[Encontrado] " + t);
         System.out.printf("Tipo: %s | Esfuerzo individual: %.2f%n",
             t.getTipo(), t.calcularEsfuerzo());
+    }
+
+    /**
+     * Opcion 10: genera un reporte estadistico del backlog usando ARREGLOS NATIVOS.
+     * Recupera la lista (ArrayList) desde MySQL y la pasa al ReporteBacklog, que
+     * internamente usa int[] y double[] para las estadisticas (uso complementario
+     * de ArrayList + arreglos).
+     */
+    private void mostrarReporte() {
+        List<Ticket> tickets = servicio.listarOrdenadoPorPrioridad();
+        ReporteBacklog reporte = new ReporteBacklog();
+        reporte.imprimirReporte(tickets);
+    }
+
+    /**
+     * Opcion 11: exporta el backlog a un archivo CSV usando java.io, registra el
+     * evento en un log y vuelve a leer el archivo para confirmar la escritura.
+     */
+    private void exportarBacklog() {
+        List<Ticket> tickets = servicio.listarOrdenadoPorPrioridad();
+        ExportadorArchivos exportador = new ExportadorArchivos("salida");
+
+        String ruta = exportador.exportarCSV(tickets, "backlog.csv");
+        exportador.registrarLog("Backlog exportado: " + tickets.size() + " tickets a backlog.csv");
+
+        System.out.println("\n[OK] Backlog exportado a: " + ruta);
+
+        // Releemos el archivo para confirmar (lectura con BufferedReader)
+        List<String> lineas = exportador.leerCSV("backlog.csv");
+        System.out.printf("[OK] Archivo verificado: %d lineas escritas.%n", lineas.size());
+        System.out.println("\n-- Primeras lineas del CSV --");
+        int max = Math.min(4, lineas.size());
+        for (int i = 0; i < max; i++) {
+            System.out.println("  " + lineas.get(i));
+        }
     }
 }
