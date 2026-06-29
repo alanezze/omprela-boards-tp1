@@ -135,6 +135,7 @@ CREATE TABLE tareas (
     id_tarea             INT NOT NULL AUTO_INCREMENT,
     titulo               VARCHAR(150) NOT NULL,
     descripcion          TEXT,
+    prioridad            INT NOT NULL DEFAULT 3,
     horas_estimadas      DECIMAL(6,2),
     horas_reales         DECIMAL(6,2) DEFAULT 0,
     estado               VARCHAR(20) NOT NULL DEFAULT 'POR_HACER',
@@ -146,7 +147,8 @@ CREATE TABLE tareas (
     CONSTRAINT fk_tareas_usuario FOREIGN KEY (id_usuario_asignado)
         REFERENCES usuarios(id_usuario),
     CONSTRAINT chk_tareas_estado CHECK (estado IN
-        ('POR_HACER','EN_PROGRESO','EN_REVISION','HECHO'))
+        ('POR_HACER','EN_PROGRESO','EN_REVISION','HECHO','CANCELADA')),
+    CONSTRAINT chk_tareas_prioridad CHECK (prioridad BETWEEN 1 AND 5)
 );
 
 -- =====================================================================
@@ -253,14 +255,14 @@ INSERT INTO historias_usuario (titulo, descripcion, criterios_aceptacion, story_
 ('Tablero Kanban basico',       'Visualizar tickets por columnas',        'Drag and drop entre columnas activas',               5, 1, 'EN_PROGRESO', 4, 3, 3),
 ('Registro de horas por ticket','Cargar horas dedicadas',                 'Suma diaria / validacion 24h',                       3, 2, 'POR_HACER',   4, 3, 2);
 
-INSERT INTO tareas (titulo, descripcion, horas_estimadas, horas_reales, estado, id_historia, id_usuario_asignado) VALUES
-('Disenar tabla usuarios',     'DDL en MySQL',                  2.0, 2.0, 'HECHO',       1, 1),
-('Endpoint POST /login',       'Controller + service',          4.0, 5.0, 'HECHO',       1, 2),
-('Validacion bcrypt',          'Hashing de password',           3.0, 2.5, 'HECHO',       1, 2),
-('Modelo Proyecto + DAO',      'Clase Proyecto y ProyectoDAO',  5.0, 4.5, 'HECHO',       2, 3),
-('Vista listado de proyectos', 'Listado paginado',              4.0, 3.0, 'HECHO',       2, 3),
-('Modelo Historia + DAO',      'Clase Historia y HistoriaDAO',  6.0, 5.5, 'HECHO',       3, 2),
-('Componente Kanban',          'Drag and drop',                 8.0, 4.0, 'EN_PROGRESO', 4, 3);
+INSERT INTO tareas (titulo, descripcion, prioridad, horas_estimadas, horas_reales, estado, id_historia, id_usuario_asignado) VALUES
+('Disenar tabla usuarios',     'DDL en MySQL',                  2, 2.0, 2.0, 'HECHO',       1, 1),
+('Endpoint POST /login',       'Controller + service',          1, 4.0, 5.0, 'HECHO',       1, 2),
+('Validacion bcrypt',          'Hashing de password',           3, 3.0, 2.5, 'HECHO',       1, 2),
+('Modelo Proyecto + DAO',      'Clase Proyecto y ProyectoDAO',  2, 5.0, 4.5, 'HECHO',       2, 3),
+('Vista listado de proyectos', 'Listado paginado',              3, 4.0, 3.0, 'HECHO',       2, 3),
+('Modelo Historia + DAO',      'Clase Historia y HistoriaDAO',  2, 6.0, 5.5, 'HECHO',       3, 2),
+('Componente Kanban',          'Drag and drop',                 1, 8.0, 4.0, 'EN_PROGRESO', 4, 3);
 
 INSERT INTO registro_horas (fecha, cantidad_horas, descripcion, aprobado, id_usuario, id_tarea, id_historia) VALUES
 ('2026-03-04', 2.0, 'DDL inicial', TRUE, 1, 1, 1),
